@@ -2,26 +2,400 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YIN Guitar Tuner</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-body { font-family: sans-serif; text-align:center; margin-top:30px; }
-.note { font-size:60px; }
-.target { font-size:22px; color:#666; }
-.freq { font-size:18px; }
-.detune { font-size:22px; }
-.string { font-size:20px; margin-top:10px; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 50%, #1a1a2e 100%);
+  background-size: 400% 400%;
+  animation: gradientShift 15s ease infinite;
+  overflow: hidden;
+  position: relative;
+}
+
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Floating orbs for liquid effect */
+body::before,
+body::after {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.4;
+  animation: float 8s ease-in-out infinite;
+}
+
+body::before {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.6) 0%, transparent 70%);
+  top: -100px;
+  left: -100px;
+}
+
+body::after {
+  width: 350px;
+  height: 350px;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.5) 0%, transparent 70%);
+  bottom: -80px;
+  right: -80px;
+  animation-delay: -4s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.05); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+
+/* Third floating orb */
+.orb {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  filter: blur(60px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulse 6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.5; transform: translate(-50%, -50%) scale(1.2); }
+}
+
+/* Main glass container */
+.container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 48px 36px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glass reflection effect */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+  border-radius: 32px 32px 0 0;
+  pointer-events: none;
+}
+
+h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 32px;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* Start button */
+#startBtn {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.8) 0%, rgba(139, 92, 246, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 14px 40px;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+  box-shadow: 
+    0 4px 15px rgba(99, 102, 241, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  margin-bottom: 36px;
+  position: relative;
+  overflow: hidden;
+}
+
+#startBtn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+#startBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 25px rgba(99, 102, 241, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+#startBtn:hover::before {
+  left: 100%;
+}
+
+#startBtn:active {
+  transform: translateY(0);
+}
+
+/* Note display - main focus */
+.note-container {
+  margin: 24px 0;
+}
+
+.note {
+  font-size: 5rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 
+    0 0 40px rgba(99, 102, 241, 0.6),
+    0 4px 20px rgba(0, 0, 0, 0.3);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  transition: all 0.2s ease;
+}
+
+/* Tuning indicator bar */
+.tuning-indicator {
+  margin: 28px 0;
+  padding: 0 10px;
+}
+
+.indicator-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  position: relative;
+  overflow: visible;
+}
+
+.indicator-center {
+  position: absolute;
+  left: 50%;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translateX(-50%);
+  border-radius: 1px;
+}
+
+.indicator-needle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 
+    0 0 20px rgba(244, 114, 182, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: left 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.indicator-needle.in-tune {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 
+    0 0 25px rgba(52, 211, 153, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Info displays */
+.info-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.info-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
+.info-value {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+}
+
+/* Detune status */
+.detune {
+  font-size: 1.1rem;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 12px;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+}
+
+.detune.sharp {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.detune.flat {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.2);
+}
+
+.detune.in-tune {
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+}
+
+/* String indicator */
+.string-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.string-dot {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  transition: all 0.3s ease;
+}
+
+.string-dot.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.6) 0%, rgba(139, 92, 246, 0.6) 100%);
+  border-color: rgba(139, 92, 246, 0.5);
+  color: white;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  .container {
+    padding: 20px;
+  }
+  
+  .glass-card {
+    padding: 32px 24px;
+    border-radius: 24px;
+  }
+  
+  .note {
+    font-size: 4rem;
+  }
+  
+  h1 {
+    font-size: 1.25rem;
+  }
+}
 </style>
 </head>
 <body>
 
-<h1>Web Guitar Tuner (YIN)</h1>
-<button id="startBtn">Start</button>
+<div class="orb"></div>
 
-<div class="note" id="note">--</div>
-<div class="target" id="target">Target: --</div>
-<div class="freq" id="freq">0 Hz</div>
-<div class="detune" id="detune"></div>
-<div class="string" id="string"></div>
+<div class="container">
+  <div class="glass-card">
+    <h1>🎸 Guitar Tuner</h1>
+    <button id="startBtn">▶ Start Tuning</button>
+    
+    <div class="note-container">
+      <div class="note" id="note">--</div>
+    </div>
+    
+    <div class="tuning-indicator">
+      <div class="indicator-bar">
+        <div class="indicator-center"></div>
+        <div class="indicator-needle" id="needle"></div>
+      </div>
+    </div>
+    
+    <div class="info-group">
+      <div class="info-item">
+        <span class="info-label">Frequency</span>
+        <span class="info-value" id="freq">0 Hz</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Target</span>
+        <span class="info-value" id="target">--</span>
+      </div>
+    </div>
+    
+    <div class="detune" id="detune"></div>
+    
+    <div class="string-indicator" id="stringIndicator">
+      <div class="string-dot" data-string="E2">E2</div>
+      <div class="string-dot" data-string="A2">A2</div>
+      <div class="string-dot" data-string="D3">D3</div>
+      <div class="string-dot" data-string="G3">G3</div>
+      <div class="string-dot" data-string="B3">B3</div>
+      <div class="string-dot" data-string="E4">E4</div>
+    </div>
+  </div>
+</div>
+
+<div class="string" id="string" style="display:none;"></div>
 
 <script>
 let audioCtx, analyser, buffer, sampleRate
@@ -63,13 +437,39 @@ function update(){
 
     const nearestString = findNearestString(freq)
     document.getElementById("target").innerText =
-      "Target: " + nearestString.name + " ("+nearestString.freq+"Hz)"
+      nearestString.name + " ("+nearestString.freq+" Hz)"
 
     const cents = 1200 * Math.log2(freq / nearestString.freq)
-
-    document.getElementById("detune").innerText =
-      cents > 0 ? "Sharp  +" + cents.toFixed(1)+" cents"
-                : "Flat  " + cents.toFixed(1)+" cents"
+    
+    // Update tuning indicator needle position
+    const needle = document.getElementById("needle")
+    const clampedCents = Math.max(-50, Math.min(50, cents))
+    const needlePos = 50 + (clampedCents / 50) * 45
+    needle.style.left = needlePos + "%"
+    
+    // Update needle color based on tuning accuracy
+    const detuneEl = document.getElementById("detune")
+    if(Math.abs(cents) < 5) {
+      needle.classList.add("in-tune")
+      detuneEl.className = "detune in-tune"
+      detuneEl.innerText = "✓ In Tune"
+    } else if(cents > 0) {
+      needle.classList.remove("in-tune")
+      detuneEl.className = "detune sharp"
+      detuneEl.innerText = "↑ Sharp +" + cents.toFixed(1) + " cents"
+    } else {
+      needle.classList.remove("in-tune")
+      detuneEl.className = "detune flat"
+      detuneEl.innerText = "↓ Flat " + cents.toFixed(1) + " cents"
+    }
+    
+    // Update string indicator
+    document.querySelectorAll(".string-dot").forEach(dot => {
+      dot.classList.remove("active")
+      if(dot.dataset.string === nearestString.name) {
+        dot.classList.add("active")
+      }
+    })
 
     document.getElementById("string").innerText =
       "Detected String: " + nearestString.name
