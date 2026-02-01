@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>YIN Guitar Tuner</title>
+<style>
+body { font-family: sans-serif; text-align:center; margin-top:30px; }
+.note { font-size:60px; }
+.target { font-size:22px; color:#666; }
+.freq { font-size:18px; }
+.detune { font-size:22px; }
+.string { font-size:20px; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<h1>Web Guitar Tuner (YIN)</h1>
+<button id="startBtn">Start</button>
+
+<div class="note" id="note">--</div>
+<div class="target" id="target">Target: --</div>
+<div class="freq" id="freq">0 Hz</div>
+<div class="detune" id="detune"></div>
+<div class="string" id="string"></div>
+
+<script>
+let audioCtx, analyser, buffer, sampleRate
+
+// Standard guitar tuning
+const guitarStrings = [
+  {name:"E2", freq:82.41},
+  {name:"A2", freq:110.00},
+  {name:"D3", freq:146.83},
+  {name:"G3", freq:196.00},
+  {name:"B3", freq:246.94},
+  {name:"E4", freq:329.63}
+]
+
+document.getElementById("startBtn").onclick = async () => {
+  audioCtx = new AudioContext()
+  const stream = await navigator.mediaDevices.getUserMedia({audio:true})
+  const source = audioCtx.createMediaStreamSource(stream)
+
+  analyser = audioCtx.createAnalyser()
+  analyser.fftSize = 2048
+
+  buffer = new Float32Array(analyser.fftSize)
+  sampleRate = audioCtx.sampleRate
+
+  source.connect(analyser)
+  update()
+}
+
+function update(){
+  analyser.getFloatTimeDomainData(buffer)
+  const freq = yin(buffer, sampleRate)
+
+  if(freq !== -1){
+    document.getElementById("freq").innerText = freq.toFixed(2)+" Hz"
+
+    const note = frequencyToNote(freq)
+    document.getElementById("note").innerText = note.name
+
+    const nearestString = findNearestString(freq)
+    document.getElementById("target").innerText =
+      "Target: " + nearestString.name + " ("+nearestString.freq+"Hz)"
+
+    const cents = 1200 * Math.log2(freq / nearestString.freq)
+
+    document.getElementById("detune").innerText =
+      cents > 0 ? "Sharp  +" + cents.toFixed(1)+" cents"
+                : "Flat  " + cents.toFixed(1)+" cents"
+
+    document.getElementById("string").innerText =
+      "Detected String: " + nearestString.name
+  }
+
+  requestAnimationFrame(update)
+}
+
+// --------------------
+// YIN Pitch Detection
+// --------------------
+function yin(buf, sampleRate){
+  const threshold = 0.1
+  const bufferSize = buf.length
+  const yinBuffer = new Float32Array(bufferSize/2)
+
+  // Step 1: Difference function
+  for(let tau=1; tau<yinBuffer.length; tau++){
+    let sum = 0
+    for(let i=0; i<yinBuffer.length; i++){
+      const delta = buf[i] - buf[i+tau]
+      sum += delta*delta
+    }
+    yinBuffer[tau] = sum
+  }
+
+  // Step 2: Cumulative mean normalized difference
+  yinBuffer[0] = 1
+  let runningSum = 0
+  for(let tau=1; tau<yinBuffer.length; tau++){
+    runningSum += yinBuffer[tau]
+    yinBuffer[tau] *= tau / runningSum
+  }
+
+  // Step 3: Absolute threshold
+  let tauEstimate = -1
+  for(let tau=2; tau<yinBuffer.length; tau++){
+    if(yinBuffer[tau] < threshold){
+      while(tau+1 < yinBuffer.length && yinBuffer[tau+1] < yinBuffer[tau]){
+        tau++
+      }
+      tauEstimate = tau
+      break
+    }
+  }
+
+  if(tauEstimate === -1) return -1
+
+  // Step 4: Parabolic interpolation
+  const x0 = tauEstimate < 1 ? tauEstimate : tauEstimate-1
+  const x2 = tauEstimate+1 < yinBuffer.length ? tauEstimate+1 : tauEstimate
+  const s0 = yinBuffer[x0]
+  const s1 = yinBuffer[tauEstimate]
+  const s2 = yinBuffer[x2]
+  const betterTau = tauEstimate + (s2 - s0) / (2*(2*s1 - s2 - s0))
+
+  return sampleRate / betterTau
+}
+
+// --- Autocorrelation Pitch Detection ---
+function autoCorrelate(buf, sampleRate) {
+  let SIZE = buf.length
+  let rms = 0
+  
+  for (let i=0;i<SIZE;i++) rms += buf[i]*buf[i]
+  rms = Math.sqrt(rms/SIZE)
+  if (rms < 0.01) return -1
+  
+  let r1=0, r2=SIZE-1
+  for (let i=0;i<SIZE/2;i++) if (Math.abs(buf[i])<0.2){ r1=i; break }
+  for (let i=1;i<SIZE/2;i++) if (Math.abs(buf[SIZE-i])<0.2){ r2=SIZE-i; break }
+  
+  buf = buf.slice(r1, r2)
+  SIZE = buf.length
+  
+  let c = new Array(SIZE).fill(0)
+  for (let i=0;i<SIZE;i++)
+    for (let j=0;j<SIZE-i;j++)
+      c[i] += buf[j]*buf[j+i]
+  
+  let d=0; while(c[d]>c[d+1]) d++
+  let maxval=-1, maxpos=-1
+  for (let i=d;i<SIZE;i++){
+    if (c[i]>maxval){ maxval=c[i]; maxpos=i }
+  }
+  
+  let T0 = maxpos
+  return sampleRate/T0
+}
+
+
+// --------------------
+// Frequency → Note name
+// --------------------
+function frequencyToNote(freq){
+  const noteNames = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"]
+  const noteNum = 12 * Math.log2(freq/440) + 69
+  const rounded = Math.round(noteNum)
+  const name = noteNames[rounded%12]
+  const octave = Math.floor(rounded/12)-1
+  return {name: name+octave}
+}
+
+// --------------------
+// Find nearest guitar string
+// --------------------
+function findNearestString(freq){
+  let minDiff = Infinity
+  let nearest = guitarStrings[0]
+  for(const s of guitarStrings){
+    const diff = Math.abs(freq - s.freq)
+    if(diff < minDiff){
+      minDiff = diff
+      nearest = s
+    }
+  }
+  return nearest
+}
+
+</script>
+</body>
+</html>
