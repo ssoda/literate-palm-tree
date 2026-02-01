@@ -176,6 +176,19 @@ h1 {
   transform: translateY(0);
 }
 
+#startBtn.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.8) 0%, rgba(220, 38, 38, 0.8) 100%);
+  box-shadow: 
+    0 4px 15px rgba(239, 68, 68, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+#startBtn.active:hover {
+  box-shadow: 
+    0 8px 25px rgba(239, 68, 68, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
 /* Note display - main focus */
 .note-container {
   margin: 24px 0;
@@ -399,6 +412,9 @@ h1 {
 
 <script>
 let audioCtx, analyser, buffer, sampleRate
+let isRunning = false
+let animationId = null
+let mediaStream = null
 
 // Standard guitar tuning
 const guitarStrings = [
@@ -410,19 +426,64 @@ const guitarStrings = [
   {name:"E4", freq:329.63}
 ]
 
-document.getElementById("startBtn").onclick = async () => {
-  audioCtx = new AudioContext()
-  const stream = await navigator.mediaDevices.getUserMedia({audio:true})
-  const source = audioCtx.createMediaStreamSource(stream)
+const startBtn = document.getElementById("startBtn")
 
-  analyser = audioCtx.createAnalyser()
-  analyser.fftSize = 2048
+startBtn.onclick = async () => {
+  if (!isRunning) {
+    // Start tuning
+    audioCtx = new AudioContext()
+    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true})
+    const source = audioCtx.createMediaStreamSource(mediaStream)
 
-  buffer = new Float32Array(analyser.fftSize)
-  sampleRate = audioCtx.sampleRate
+    analyser = audioCtx.createAnalyser()
+    analyser.fftSize = 2048
 
-  source.connect(analyser)
-  update()
+    buffer = new Float32Array(analyser.fftSize)
+    sampleRate = audioCtx.sampleRate
+
+    source.connect(analyser)
+    isRunning = true
+    startBtn.innerHTML = "■ Stop"
+    startBtn.classList.add("active")
+    update()
+  } else {
+    // Stop tuning
+    stopTuning()
+  }
+}
+
+function stopTuning() {
+  isRunning = false
+  
+  // Cancel animation frame
+  if (animationId) {
+    cancelAnimationFrame(animationId)
+    animationId = null
+  }
+  
+  // Stop media stream tracks
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop())
+    mediaStream = null
+  }
+  
+  // Close audio context
+  if (audioCtx) {
+    audioCtx.close()
+    audioCtx = null
+  }
+  
+  // Reset UI
+  startBtn.innerHTML = "▶ Start Tuning"
+  startBtn.classList.remove("active")
+  document.getElementById("note").innerText = "--"
+  document.getElementById("freq").innerText = "0 Hz"
+  document.getElementById("target").innerText = "--"
+  document.getElementById("detune").innerText = ""
+  document.getElementById("detune").className = "detune"
+  document.getElementById("needle").style.left = "50%"
+  document.getElementById("needle").classList.remove("in-tune")
+  document.querySelectorAll(".string-dot").forEach(dot => dot.classList.remove("active"))
 }
 
 function update(){
@@ -475,7 +536,9 @@ function update(){
       "Detected String: " + nearestString.name
   }
 
-  requestAnimationFrame(update)
+  if (isRunning) {
+    animationId = requestAnimationFrame(update)
+  }
 }
 
 // --------------------
